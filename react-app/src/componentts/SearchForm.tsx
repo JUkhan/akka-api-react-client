@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { makeStyles } from '@material-ui/core/styles';
 import TextField from '@material-ui/core/TextField';
 import Button from '@material-ui/core/Button';
@@ -6,7 +6,8 @@ import SearchIcon from '@material-ui/icons/Search';
 import { useForm } from '@jukhan/react-form';
 import { Get } from 'ajwahjs'
 import { AnalyserState } from '../state/AnalyserState'
-import { idText } from 'typescript';
+import { useStream } from '../hooks';
+import { map } from 'rxjs/operators';
 const useStyles = makeStyles((theme) => ({
     container: {
         display: 'flex',
@@ -23,6 +24,10 @@ function SearchForm() {
     const ctrl = Get(AnalyserState)
     const classes = useStyles();
     const { setValue, getValue, formData, setFormData } = useForm();
+    const searchData = useStream(ctrl.stream$.pipe(map(s => s.search)), ctrl.state.search);
+    useEffect(() => {
+        setFormData(searchData);
+    }, []);
     function submit() {
         const data = formData();
         if (!data.dateTimeFrom) data.dateTimeFrom = '2021-01-01T01:01';

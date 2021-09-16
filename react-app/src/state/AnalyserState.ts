@@ -1,7 +1,6 @@
 import { StateController, effect } from "ajwahjs";
-import { tap, map, exhaustMap, delay, filter } from "rxjs/operators";
-import { ajax } from "rxjs/ajax";
-import { Observable } from "rxjs";
+import { tap, map, switchMap, delay, filter } from "rxjs/operators";
+import { Observable, from } from "rxjs";
 export type MessageData = {
   datetime: string;
   message: string;
@@ -16,6 +15,10 @@ export interface IAnalyserState {
   data: MessageData[];
   histogram: any;
 }
+type MessageFrequencies = {
+  datetime: string;
+  counts: number;
+};
 export class SearchAction {
   constructor(public payload: SearchData) {}
 }
@@ -27,22 +30,7 @@ export class AnalyserState extends StateController<IAnalyserState> {
       histogram: {},
     });
   }
-  onInit() {
-    fetch("http://localhost:8080/api/data", {
-      method: "POST",
-      headers: {
-        mode: "no-cors",
-      },
-      body: JSON.stringify({
-        dateTimeForm: "2021-01-01T00:01:01",
-        dateTimeUntil: "2021-12-30T23:58:58",
-        phrase: "",
-      }),
-    })
-      .then((res) => res.json())
-      .then(console.log)
-      .catch(console.error);
-  }
+  onInit() {}
   search = effect<SearchData>((data$) =>
     data$.pipe(
       filter(
@@ -53,24 +41,57 @@ export class AnalyserState extends StateController<IAnalyserState> {
       ),
       tap((data) => this.emit({ search: data } as any)),
       tap((data) => console.log(data)),
-      exhaustMap(() => this.loadMessagedata()),
-      tap((data) => console.log(data)),
-      tap((data) => this.emit({ data: data } as any))
+      switchMap(() => this.loadMessageData()),
+      tap((data) => this.emit({ data } as any)),
+      //delay(1000),
+      switchMap(() => this.loadHistogramData()),
+      map(this.mapHistogramData),
+      tap((data) => this.emit({ histogram: data } as any))
     )
   );
   baseUrl = "http://localhost:8080/api/";
-  private loadMessagedata(): Observable<Array<MessageData>> {
-    return ajax.post(this.baseUrl + "data", this.searchFormData(), {
-      "Content-Type": "application/json",
-    }) as any;
+  private loadMessageData(): Observable<Array<MessageData>> {
+    return this.getData(this.baseUrl + "data");
   }
   private loadHistogramData() {
-    return ajax.post(this.baseUrl + "histogram", this.searchFormData());
+    return this.getData(this.baseUrl + "histogram");
   }
   private searchFormData() {
-    const data = this.state.search;
+    const data = { ...this.state.search };
     data.dateTimeFrom += ":01";
     data.dateTimeUntil += ":58";
     return data;
+  }
+  private getData(url: string) {
+    return from(
+      fetch(url, {
+        method: "POST",
+        headers: {
+          mode: "cors",
+          credentials: "include",
+          Accepts: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(this.searchFormData()),
+      }).then((res) => res.json())
+    );
+  }
+  private mapHistogramData(data: MessageFrequencies[]) {
+    return data.reduce<any>(
+      (acc, item) => {
+        acc.labels.push(item.datetime);
+        acc.datasets[0].data.push(item.counts);
+        return acc;
+      },
+      {
+        labels: [],
+        datasets: [
+          {
+            label: "Message Frequency",
+            data: [],
+          },
+        ],
+      }
+    );
   }
 }

@@ -1,15 +1,12 @@
 import React from 'react';
 import { Bar } from 'react-chartjs-2';
-
+import { Get } from 'ajwahjs'
+import { AnalyserState } from '../state//AnalyserState';
+import { useStream } from '../hooks';
+import { map } from 'rxjs/operators';
 const Histogram = () => {
-
-    const data = {
-        labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-        datasets: [{
-            label: 'My First dataset',
-            data: [65, 59, 80, 81, 56, 55, 40],
-        }]
-    }
+    const ctrl = Get(AnalyserState)
+    const data = useStream(ctrl.stream$.pipe(map(s => s.histogram)), {});
     return <div>
         <Bar data={data} />
     </div>;

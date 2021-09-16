@@ -7,6 +7,10 @@ import Button from '@material-ui/core/Button';
 import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
 import { useHistory } from 'react-router-dom';
+import { Get } from 'ajwahjs'
+import { AnalyserState } from '../state/AnalyserState';
+import { useStream } from '../hooks';
+import { map } from 'rxjs/operators';
 
 const useStyles = makeStyles((theme) => ({
     root: {
@@ -21,6 +25,8 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function ButtonAppBar() {
+    const ctrl = Get(AnalyserState)
+    const data = useStream(ctrl.stream$.pipe(map(s => s.histogram)), {});
     const classes = useStyles();
     let history = useHistory();
     function homeClick() {
@@ -36,12 +42,12 @@ function ButtonAppBar() {
                     <IconButton onClick={homeClick} edge="start" className={classes.menuButton} color="inherit" aria-label="menu">
                         <MenuIcon />
                     </IconButton>
-                    <Typography variant="h6" className={classes.title}>
+                    {data.labels && <Typography variant="h6" className={classes.title}>
                         <Button color="inherit" onClick={histogramClick}>
                             Histogram
                         </Button>
-                    </Typography>
-                    <Button color="inherit">Login</Button>
+                    </Typography>}
+
                 </Toolbar>
             </AppBar>
         </div>
