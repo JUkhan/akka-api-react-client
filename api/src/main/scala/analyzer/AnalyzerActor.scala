@@ -1,21 +1,30 @@
 package analyzer
 
 import akka.actor.{Actor, ActorLogging}
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import scala.io.Source
 import spray.json._
 
+import scala.collection.mutable.ListBuffer
 
+// actor events
 case object FileSize
 case object Status
 case class InitAnalyzer(fileName:String)
-case class Filter(dateTimeForm : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
-case class Histogram(dateTimeForm : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
+case class Filter(dateTimeFrom : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
+case class Histogram(dateTimeFrom : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
+
+//actor response
 case class FilteredData(datetime: LocalDateTime, message:String)
+case class FilteredDataHighlightText(datetime: LocalDateTime, message:String, highlightText: List[Position])
 case class HistogramData(datetime: LocalDateTime, counts:Int)
 case class FileLength(size:Int)
 case class StatusOk(status: String)
+case class Position(fromPosition:Int, toPosition:Int)
+case class FilterResponse(data:List[FilteredDataHighlightText],  dateTimeFrom : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
+case class HistogramResponse(histogram:List[HistogramData],  dateTimeFrom : LocalDateTime, dateTimeUntil: LocalDateTime, phrase: String)
 
 trait JsonSupport extends DefaultJsonProtocol  {
   implicit object LocalDateTimeJsonFormat extends RootJsonFormat[LocalDateTime] {
@@ -33,6 +42,10 @@ trait JsonSupport extends DefaultJsonProtocol  {
   implicit val filterFormat=jsonFormat3(Filter)
   implicit val histogramFormat=jsonFormat3(Histogram)
   implicit val histDataFormat=jsonFormat2(HistogramData)
+  implicit val positionFormat = jsonFormat2(Position)
+  implicit val highlightTextFormat=jsonFormat3(FilteredDataHighlightText)
+  implicit val histogramResponse=jsonFormat4(HistogramResponse)
+  implicit val dataResponse=jsonFormat4(FilterResponse)
 }
 
 class AnalyzerActor extends Actor with ActorLogging{
@@ -50,11 +63,12 @@ class AnalyzerActor extends Actor with ActorLogging{
       sender() ! FileLength(size)
     case Filter(dtFrom, dtUntil, phrase)=>
       val data= getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
-      sender() ! data
+        .map(it=>FilteredDataHighlightText(it.datetime, it.message, findPositions(it.message.toLowerCase(), phrase.toLowerCase()))).toList
+      sender() ! FilterResponse(data, dtFrom, dtUntil, phrase)
     case Histogram(dtFrom, dtUntil, phrase)=>
       val filteredData= getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
-      val histogramData=filteredData.groupBy(_.datetime).mapValues(_.size).map(a =>HistogramData(a._1, a._2))
-      sender() ! histogramData
+      val histogramData=filteredData.groupBy(_.datetime).mapValues(_.size).map(a =>HistogramData(a._1, a._2)).toList
+      sender() ! HistogramResponse(histogramData, dtFrom, dtUntil, phrase)
   }
   protected def getFilteredData(fileName:String, dtFrom:LocalDateTime, dtUntil:LocalDateTime, phrase:String):List[FilteredData]={
     log.info(s"from: $dtFrom, until: $dtUntil, phrase: $phrase")
@@ -79,4 +93,18 @@ class AnalyzerActor extends Actor with ActorLogging{
     data
   }
 
+  protected def findPositions(str:String, subStr:String):List[Position]={
+    if (subStr.size==0)return List()
+    val res:ListBuffer[Position]=ListBuffer()
+    val strLen=str.size
+    val tempLen=subStr.size
+    var fromIndex=0
+    while (fromIndex+tempLen < strLen){
+      val index =str.indexOf(subStr, fromIndex)
+      if(index<0) return res.toList
+      res += Position(index, index + tempLen - 1)
+      fromIndex =index+tempLen
+    }
+    res.toList
+  }
 }

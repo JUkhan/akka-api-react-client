@@ -1,9 +1,14 @@
 import { StateController, effect } from "ajwahjs";
 import { tap, map, switchMap, delay, filter } from "rxjs/operators";
 import { Observable, from } from "rxjs";
+export type Position = {
+  fromPosition: number;
+  toPosition: number;
+};
 export type MessageData = {
   datetime: string;
   message: string;
+  highlightText: Position[];
 };
 export type SearchData = {
   dateTimeFrom: string;
@@ -42,10 +47,10 @@ export class AnalyserState extends StateController<IAnalyserState> {
       tap((data) => this.emit({ search: data } as any)),
       tap((data) => console.log(data)),
       switchMap(() => this.loadMessageData()),
-      tap((data) => this.emit({ data } as any)),
+      tap((data: any) => this.emit({ data: data.data } as any)),
       //delay(1000),
       switchMap(() => this.loadHistogramData()),
-      map(this.mapHistogramData),
+      map((data) => this.mapHistogramData(data.histogram)),
       tap((data) => this.emit({ histogram: data } as any))
     )
   );
