@@ -62,17 +62,19 @@ class AnalyzerActor extends Actor with ActorLogging{
       val size = Source.fromFile(fileName).size
       sender() ! FileLength(size)
     case Filter(dtFrom, dtUntil, phrase)=>
-      val data= getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
-        .map(it=>FilteredDataHighlightText(it.datetime, it.message, findPositions(it.message.toLowerCase(), phrase.toLowerCase()))).toList
+      val data= AnalyzerActor.getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
+        .map(it=>FilteredDataHighlightText(it.datetime, it.message,AnalyzerActor.findPositions(it.message.toLowerCase(), phrase.toLowerCase()))).toList
       sender() ! FilterResponse(data, dtFrom, dtUntil, phrase)
     case Histogram(dtFrom, dtUntil, phrase)=>
-      val filteredData= getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
+      val filteredData=AnalyzerActor. getFilteredData(fileName, dtFrom,dtUntil, phrase.toLowerCase())
       val histogramData=filteredData.groupBy(_.datetime).mapValues(_.size).map(a =>HistogramData(a._1, a._2)).toList
       sender() ! HistogramResponse(histogramData, dtFrom, dtUntil, phrase)
   }
-  protected def getFilteredData(fileName:String, dtFrom:LocalDateTime, dtUntil:LocalDateTime, phrase:String):List[FilteredData]={
-    log.info(s"from: $dtFrom, until: $dtUntil, phrase: $phrase")
-    val formatter = DateTimeFormatter.ofPattern("[yyyy MMM dd kk:mm:ss][yyyy MMM  d kk:mm:ss]")
+
+}
+object AnalyzerActor{
+   def getFilteredData(fileName:String, dtFrom:LocalDateTime, dtUntil:LocalDateTime, phrase:String):List[FilteredData]={
+     val formatter = DateTimeFormatter.ofPattern("[yyyy MMM dd kk:mm:ss][yyyy MMM  d kk:mm:ss]")
     val dateTime_pattern="[JFMASOND][a-z]{2}\\s+\\d?\\d\\s\\d{2}:\\d{2}:\\d{2}"
     var data:List[FilteredData] = List()
     val lDate=LocalDateTime.now()
@@ -93,7 +95,7 @@ class AnalyzerActor extends Actor with ActorLogging{
     data
   }
 
-  protected def findPositions(str:String, subStr:String):List[Position]={
+   def findPositions(str:String, subStr:String):List[Position]={
     if (subStr.size==0)return List()
     val res:ListBuffer[Position]=ListBuffer()
     val strLen=str.size

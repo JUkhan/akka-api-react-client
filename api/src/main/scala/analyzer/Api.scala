@@ -39,7 +39,7 @@ object Api extends  App with JsonSupport with SprayJsonSupport  {
           }
       ) ~
         post(
-          //cors.corsHandler(
+
           (path("data") & entity(as[Filter])) { filter =>
             val data = (analyzer ? filter).mapTo[FilterResponse]
             complete(data)
@@ -48,7 +48,7 @@ object Api extends  App with JsonSupport with SprayJsonSupport  {
               val data = (analyzer ? histogram).mapTo[HistogramResponse]
               complete(data)
             }
-          //)
+
         )
     })
 
