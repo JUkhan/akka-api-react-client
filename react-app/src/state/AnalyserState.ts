@@ -45,10 +45,8 @@ export class AnalyserState extends StateController<IAnalyserState> {
           data.phrase !== this.state.search.phrase
       ),
       tap((data) => this.emit({ search: data } as any)),
-      tap((data) => console.log(data)),
       switchMap(() => this.loadMessageData()),
       tap((data: any) => this.emit({ data: data.data } as any)),
-      //delay(1000),
       switchMap(() => this.loadHistogramData()),
       map((data) => this.mapHistogramData(data.histogram)),
       tap((data) => this.emit({ histogram: data } as any))
@@ -72,8 +70,6 @@ export class AnalyserState extends StateController<IAnalyserState> {
       fetch(url, {
         method: "POST",
         headers: {
-          mode: "cors",
-          credentials: "include",
           Accepts: "application/json",
           "Content-Type": "application/json",
         },
